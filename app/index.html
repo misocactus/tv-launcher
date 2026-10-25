@@ -83,8 +83,10 @@
     box-shadow:0 0 0 2px rgba(255,255,255,.18)}
   .debug.on{display:block}
   .debug h3{font-size:24px;margin-bottom:14px}
-  .debug .line{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:16px;
-    color:#cfe3ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .debug .line{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:17px;
+    color:#cfe3ff;white-space:pre-wrap;word-break:break-word;margin-bottom:2px}
+  .debug .st{color:#7fe3a1}
+  .debug .warn{color:#ffcf6b}
   .debug .hint{color:#8aa;margin-top:16px;font-size:15px}
 </style>
 </head>
@@ -335,7 +337,7 @@ const DIAG = {};
 addEventListener('keydown', (e) => {
   SFX.unlock();
   const k = e.keyCode;
-  if (k === 68 || k === 10009 && false) { toggleDebug(); e.preventDefault(); return; }
+  if (k === 68) { toggleDebug(); report(); e.preventDefault(); return; }
   if (k === 13) { SFX.launch(); launch(current); e.preventDefault(); return; }
   if (k === 10009 || k === 8) { SFX.back(); if (debugOn) toggleDebug(); e.preventDefault(); return; }
   if (k === 37) { move(0, -1); e.preventDefault(); return; }
@@ -354,6 +356,26 @@ document.getElementById('clock').textContent = (() => {
 
 APP_LIST = discover();
 render(APP_LIST);
+report();
+
+function report(){
+  const payload = {
+    env: DIAG.env || null,
+    count: APP_LIST.length,
+    demo: APP_LIST.every(a => String(a.id).startsWith('demo.')),
+    apps: APP_LIST.map(a => ({ id: a.id, name: a.name, icon: a.icon })),
+    ua: navigator.userAgent,
+    href: location.href,
+    screen: [screen.width, screen.height]
+  };
+  try {
+    fetch('http://192.168.86.123:8123/diag', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(() => {});
+  } catch (e) {}
+}
 setTimeout(paint, 50);
 </script>
 </body>
