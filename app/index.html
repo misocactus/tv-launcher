@@ -9,7 +9,7 @@
   html,body{height:100%;overflow:hidden;background:#080a0d;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
     -webkit-font-smoothing:antialiased;color:#fff}
-  #stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;transform-origin:center center}
+  #stage{position:fixed;top:0;left:0;width:1920px;height:1080px;transform-origin:0 0}
 
   .bg{position:absolute;inset:0;overflow:hidden;transition:background 600ms ease-out}
   .bg .blob{position:absolute;filter:blur(100px);border-radius:50%;opacity:.55;transition:background 600ms ease-out}
@@ -168,7 +168,15 @@ function discover(){
         out.push({ id, name, icon: (info && info.iconPath) || null });
       }
     }
-  } catch (e) { console.error('discovery failed', e); }
+  } catch (e) { DIAG.err = 'getAppsContext: ' + (e && (e.message || e.name) || e); console.error('discovery failed', e); }
+  DIAG.env = {
+    inner: innerWidth + 'x' + innerHeight,
+    dpr: window.devicePixelRatio,
+    tizen: typeof window.tizen,
+    appApi: (window.tizen && tizen.application) ? 'yes' : 'no',
+    ctxFn: (window.tizen && tizen.application && typeof tizen.application.getAppsContext) || 'none',
+    err: DIAG.err || 'none'
+  };
   if (!out.length){
     // browser preview / preview-mode fallback
     ['Netflix','YouTube','Prime Video','Disney+','Apple TV+','Stan','ABC iview','SBS On Demand','9Now','10 Play','Kayo','Plex','Spotify','Family','Kids','Tonight']
@@ -202,10 +210,14 @@ const tintFor = (name) => TINT[key(name)] || '#232a33';
 /* ---------------- layout ---------------- */
 const stage = document.getElementById('stage');
 function fit(){
-  const s = Math.min(innerWidth / 1920, innerHeight / 1080);
-  stage.style.transform = `translate(-50%,-50%) scale(${s})`;
+  const w = Math.max(1, innerWidth), h = Math.max(1, innerHeight);
+  const s = Math.min(w / 1920, h / 1080);
+  stage.style.transform = `scale(${s})`;
+  stage.style.left = Math.round((w - 1920 * s) / 2) + 'px';
+  stage.style.top = Math.round((h - 1080 * s) / 2) + 'px';
 }
 addEventListener('resize', fit); fit();
+window.__fit = fit;
 
 const dockEl = document.getElementById('dock');
 const gridEl = document.getElementById('grid');
@@ -310,13 +322,16 @@ function toggleDebug(){
   debugEl.classList.toggle('on', debugOn);
   if (!debugOn) return;
   const apps = APP_LIST;
-  debugEl.innerHTML = `<h3>Installed apps (${apps.length}) — press D to close</h3>` +
+  const env = Object.entries(DIAG.env || {}).map(([k, v]) => `<div class="line">${k}: ${v}</div>`).join('');
+  debugEl.innerHTML = `<h3>Diagnostics — press D to close</h3>` + env +
+    `<h3 style="margin-top:18px">Apps reported (${apps.length})</h3>` +
     apps.map(a => `<div class="line">${a.id} · ${a.name} · ${a.icon || 'no icon'}</div>`).join('') +
     `<div class="hint">Screenshot this and send it. It tells me the real app IDs to pin.</div>`;
 }
 
 /* ---------------- keys ---------------- */
 let APP_LIST = [];
+const DIAG = {};
 addEventListener('keydown', (e) => {
   SFX.unlock();
   const k = e.keyCode;
